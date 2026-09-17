@@ -1,0 +1,35 @@
+[project]
+name = "shoppilot-backend"
+version = "0.1.0"
+description = "ShopPilot commerce API and OpenRouter orchestration"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115,<1", "uvicorn[standard]>=0.34,<1", "pydantic-settings>=2.8,<3",
+  "sqlalchemy[asyncio]>=2.0.38,<3", "asyncpg>=0.30,<1", "alembic>=1.15,<2",
+  "pgvector>=0.3.6,<1", "httpx>=0.28,<1", "langgraph>=1.0,<2",
+  "pyyaml>=6.0.2,<7", "pyarrow>=19,<24", "prometheus-client>=0.21,<1",
+  "opentelemetry-api>=1.30,<2"
+]
+[dependency-groups]
+dev = ["pytest>=8.3,<10", "pytest-asyncio>=0.25,<2", "ruff>=0.11,<1", "mypy>=1.15,<2", "types-PyYAML>=6", "aiosqlite>=0.21,<1", "pip-audit>=2.8,<3"]
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = ["pytest-cache-files-*", ".pytest_cache"]
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+ignore = ["E501", "B008"]
+[tool.mypy]
+python_version = "3.12"
+check_untyped_defs = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = ["live: paid opt-in OpenRouter test", "postgres: requires PostgreSQL integration database"]

@@ -8,3 +8,23 @@ wheels/
 
 # Virtual environments
 .venv
+.env
+.env.*
+!.env.example
+.cache/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+node_modules/
+.next/
+coverage/
+test-results/
+playwright-report/
+data/processed/*
+!data/processed/.gitkeep
+*.db
+*.log
+.terraform/
+*.tfstate*
+*.tfvars
+!*.tfvars.example

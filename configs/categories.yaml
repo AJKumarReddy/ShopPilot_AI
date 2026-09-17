@@ -1,0 +1,12 @@
+seed: 42
+minimum_rating_count: 10
+max_subcategory_fraction: 0.15
+scan_multiplier: 30
+max_bytes: 9000000000
+categories:
+  Electronics: 15000
+  Home_and_Kitchen: 15000
+  Clothing_Shoes_and_Jewelry: 15000
+  Sports_and_Outdoors: 10000
+  Beauty_and_Personal_Care: 10000
+  Cell_Phones_and_Accessories: 10000

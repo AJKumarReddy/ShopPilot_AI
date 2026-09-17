@@ -1,0 +1,57 @@
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-shoppilot}
+      POSTGRES_USER: ${POSTGRES_USER:-shoppilot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-development-only}
+    ports: ["127.0.0.1:${POSTGRES_PORT:-55432}:5432"]
+    volumes: ["postgres_data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+  migrate:
+    build: {context: ., dockerfile: backend/Dockerfile}
+    environment: &backend_env
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-shoppilot}:${POSTGRES_PASSWORD:-local-development-only}@db:5432/${POSTGRES_DB:-shoppilot}
+      AI_MODE: ${AI_MODE:-demo}
+      DATASET_MODE: ${DATASET_MODE:-demo}
+      AUTH_MODE: ${AUTH_MODE:-demo}
+      DEMO_AUTH_TOKEN: ${DEMO_AUTH_TOKEN:-local-demo-token-change-for-shared-environments}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      OPENROUTER_CHAT_MODEL: ${OPENROUTER_CHAT_MODEL:-openai/gpt-5.6-luna}
+      OPENROUTER_REASONING_MODEL: ${OPENROUTER_REASONING_MODEL:-openai/gpt-5.6-terra}
+      OPENROUTER_EMBEDDING_MODEL: ${OPENROUTER_EMBEDDING_MODEL:-openai/text-embedding-3-small}
+      OPENROUTER_FALLBACK_MODELS: ${OPENROUTER_FALLBACK_MODELS:-}
+      EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-1536}
+    command: ["alembic", "-c", "backend/alembic.ini", "upgrade", "head"]
+    depends_on: {db: {condition: service_healthy}}
+  seed:
+    build: {context: ., dockerfile: backend/Dockerfile}
+    environment: *backend_env
+    command: ["python", "scripts/seed_demo_users.py"]
+    depends_on: {migrate: {condition: service_completed_successfully}}
+  backend:
+    build: {context: ., dockerfile: backend/Dockerfile}
+    environment: *backend_env
+    ports: ["127.0.0.1:8000:8000"]
+    depends_on: {seed: {condition: service_completed_successfully}}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/ready')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  frontend:
+    build: {context: ., dockerfile: frontend/Dockerfile}
+    ports: ["127.0.0.1:3000:3000"]
+    depends_on: {backend: {condition: service_healthy}}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+volumes:
+  postgres_data:

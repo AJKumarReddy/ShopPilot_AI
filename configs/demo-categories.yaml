@@ -1,0 +1,13 @@
+seed: 42
+minimum_rating_count: 10
+max_subcategory_fraction: 0.15
+scan_multiplier: 50
+max_bytes: 50000000
+preferred_terms: [headphones, wireless, noise cancelling]
+categories:
+  Electronics: 150
+  Home_and_Kitchen: 120
+  Clothing_Shoes_and_Jewelry: 100
+  Sports_and_Outdoors: 90
+  Beauty_and_Personal_Care: 70
+  Cell_Phones_and_Accessories: 70

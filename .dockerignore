@@ -1,0 +1,12 @@
+.git
+.venv
+**/node_modules
+**/.next
+**/__pycache__
+.env
+.env.*
+**/*.log
+.cache
+data/processed
+**/.terraform
+**/*.tfstate*
