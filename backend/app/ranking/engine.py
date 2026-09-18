@@ -60,7 +60,11 @@ def rank(
             reasons.insert(0, f"Within your ${constraints.max_price} budget.")
         if matched:
             reasons.append("Source lists " + ", ".join(matched) + ".")
-        reasons.append(f"In stock, estimated shipping in {inventory.shipping_days} days.")
+        reasons.append(
+            f"In stock, estimated shipping in {inventory.shipping_days} days."
+            if inventory.active and inventory.stock_quantity > inventory.reserved_quantity
+            else "Currently unavailable."
+        )
         results.append(
             {
                 **product_view(product, inventory),

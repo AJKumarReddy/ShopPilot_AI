@@ -30,6 +30,25 @@ async def test_cart_totals_stock_and_ownership(db: AsyncSession) -> None:
     assert (await cart.change(view["items"][0]["id"], None))["items"] == []
 
 
+async def test_cart_merges_only_matching_variants_and_checks_combined_stock(
+    db: AsyncSession,
+) -> None:
+    product = await db.get(Product, "product-0")
+    assert product
+    product.attributes = {"colors": ["black", "white"]}
+    cart = CartService(db, DEMO_USER_ID, Settings())
+    await cart.add(CartAdd(product_id=product.id, quantity=2, color="black"))
+    await cart.add(CartAdd(product_id=product.id, quantity=3, color="white"))
+    view = await cart.add(CartAdd(product_id=product.id, quantity=1, color="black"))
+    assert {item["variant"]: item["quantity"] for item in view["items"]} == {
+        "color: black": 3,
+        "color: white": 3,
+    }
+    with pytest.raises(CommerceError, match="unavailable"):
+        await cart.add(CartAdd(product_id=product.id, quantity=5, color="white"))
+    assert (await cart.view())["subtotal"] == "480.00"
+
+
 async def test_confirmation_and_idempotency(db: AsyncSession) -> None:
     await CartService(db, DEMO_USER_ID, Settings()).add(CartAdd(product_id="product-0"))
     checkout = CheckoutService(db, DEMO_USER_ID, Settings())

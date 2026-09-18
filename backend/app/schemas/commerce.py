@@ -9,6 +9,7 @@ class StrictModel(BaseModel):
 
 
 class Constraints(StrictModel):
+    major_category: str | None = Field(default=None, max_length=120)
     category: str | None = Field(default=None, max_length=160)
     subcategory: str | None = Field(default=None, max_length=200)
     min_price: Decimal | None = Field(default=None, ge=0)

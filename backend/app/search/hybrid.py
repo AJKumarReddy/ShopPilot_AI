@@ -4,6 +4,7 @@ from typing import Any
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import ColumnElement, cast, func, literal, or_, select
+from sqlalchemy.dialects.postgresql import REGCONFIG
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.openrouter_client import AIError, OpenRouterClient
@@ -29,8 +30,11 @@ class HybridSearch:
         started = time.perf_counter()
         c = args.constraints
         postgres = self.db.get_bind().dialect.name == "postgresql"
+        language = cast(literal("english"), REGCONFIG)
         predicates: list[ColumnElement[bool]] = [Inventory.active.is_(True)]
         discounted = func.round(Product.price * (1 - Inventory.discount_percentage / 100), 2)
+        if c.major_category:
+            predicates.append(Product.major_category == c.major_category)
         if c.available_only:
             predicates.append(Inventory.stock_quantity > Inventory.reserved_quantity)
         if c.min_price is not None:
@@ -44,8 +48,8 @@ class HybridSearch:
         if c.category:
             if postgres:
                 predicates.append(
-                    func.to_tsvector(literal("english"), Product.search_text).op("@@")(
-                        func.plainto_tsquery(literal("english"), c.category)
+                    func.to_tsvector(language, Product.search_text).op("@@")(
+                        func.plainto_tsquery(language, c.category)
                     )
                 )
             else:
@@ -89,14 +93,21 @@ class HybridSearch:
         }
         words = [w for w in words if w not in stopwords and not w.isdigit()][:20]
         base = select(Product, Inventory).join(Inventory).where(*predicates)
+        metadata_order = (
+            [discounted.asc(), Product.id]
+            if c.sort_preference == "price_asc"
+            else [Product.average_rating.desc(), Product.id]
+            if c.sort_preference == "rating"
+            else []
+        )
         if postgres and words:
-            vector = func.to_tsvector(literal("english"), Product.search_text)
-            query = func.websearch_to_tsquery(literal("english"), " OR ".join(words))
+            vector = func.to_tsvector(language, Product.search_text)
+            query = func.websearch_to_tsquery(language, " OR ".join(words))
             lexical = (
                 await self.db.execute(
                     base.add_columns(func.ts_rank_cd(vector, query).label("lexical"))
                     .where(vector.op("@@")(query))
-                    .order_by(func.ts_rank_cd(vector, query).desc(), Product.id)
+                    .order_by(*(metadata_order or [func.ts_rank_cd(vector, query).desc(), Product.id]))
                     .limit(100)
                 )
             ).all()
@@ -116,7 +127,7 @@ class HybridSearch:
             lexical = (
                 await self.db.execute(
                     query_base.add_columns(literal(1.0))
-                    .order_by(Product.average_rating.desc(), Product.id)
+                    .order_by(*(metadata_order or [Product.average_rating.desc(), Product.id]))
                     .limit(100)
                 )
             ).all()

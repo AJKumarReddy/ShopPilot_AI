@@ -17,12 +17,16 @@ export function ChatPanel({
   status,
   voice,
   onSend,
+  onNewChat,
+  onViewProducts,
 }: {
   messages: ChatMessage[];
   busy: boolean;
   status: string;
   voice: ReturnType<typeof useVoice>;
   onSend: (text: string) => void;
+  onNewChat?: () => void;
+  onViewProducts?: () => void;
 }) {
   const [input, setInput] = useState("");
   const end = useRef<HTMLDivElement>(null);
@@ -46,8 +50,9 @@ export function ChatPanel({
             <span className="online-dot" /> Here to help you find your fit
           </p>
         </div>
-        <span className="ai-label">AI</span>
+        <span className="ai-label">PILOT</span>
       </div>
+      {onNewChat && <button className="new-chat-inline" onClick={onNewChat}>+ New conversation</button>}
       <div
         className="conversation"
         role="log"
@@ -110,6 +115,7 @@ export function ChatPanel({
         )}
         <div ref={end} />
       </div>
+      {onViewProducts && messages.length > 0 && <button className="chat-view-products" onClick={onViewProducts}>View product picks →</button>}
       {voice.state === "listening" && (
         <div className="transcript" role="status">
           <span className="listening-dot" /> Listening… {voice.transcript}

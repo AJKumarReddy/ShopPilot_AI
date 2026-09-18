@@ -12,6 +12,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@next/env": "^15.5.12",
     "lucide-react": "^0.468.0",
     "next": "^15.5.12",
     "react": "^19.1.0",

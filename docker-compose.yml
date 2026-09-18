@@ -1,10 +1,19 @@
+x-backend: &backend
+  build: {context: ., dockerfile: backend/Dockerfile}
+  env_file: .env
+  environment:
+    # Containers reach the bundled database over the Compose network.
+    # An explicit DATABASE_URL in .env takes precedence over these defaults.
+    POSTGRES_HOST: db
+    POSTGRES_PORT: "5432"
+
 services:
   db:
     image: pgvector/pgvector:pg17
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-shoppilot}
-      POSTGRES_USER: ${POSTGRES_USER:-shoppilot}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-development-only}
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     ports: ["127.0.0.1:${POSTGRES_PORT:-55432}:5432"]
     volumes: ["postgres_data:/var/lib/postgresql/data"]
     healthcheck:
@@ -13,30 +22,15 @@ services:
       timeout: 5s
       retries: 15
   migrate:
-    build: {context: ., dockerfile: backend/Dockerfile}
-    environment: &backend_env
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-shoppilot}:${POSTGRES_PASSWORD:-local-development-only}@db:5432/${POSTGRES_DB:-shoppilot}
-      AI_MODE: ${AI_MODE:-demo}
-      DATASET_MODE: ${DATASET_MODE:-demo}
-      AUTH_MODE: ${AUTH_MODE:-demo}
-      DEMO_AUTH_TOKEN: ${DEMO_AUTH_TOKEN:-local-demo-token-change-for-shared-environments}
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
-      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
-      OPENROUTER_CHAT_MODEL: ${OPENROUTER_CHAT_MODEL:-openai/gpt-5.6-luna}
-      OPENROUTER_REASONING_MODEL: ${OPENROUTER_REASONING_MODEL:-openai/gpt-5.6-terra}
-      OPENROUTER_EMBEDDING_MODEL: ${OPENROUTER_EMBEDDING_MODEL:-openai/text-embedding-3-small}
-      OPENROUTER_FALLBACK_MODELS: ${OPENROUTER_FALLBACK_MODELS:-}
-      EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-1536}
+    <<: *backend
     command: ["alembic", "-c", "backend/alembic.ini", "upgrade", "head"]
     depends_on: {db: {condition: service_healthy}}
   seed:
-    build: {context: ., dockerfile: backend/Dockerfile}
-    environment: *backend_env
+    <<: *backend
     command: ["python", "scripts/seed_demo_users.py"]
     depends_on: {migrate: {condition: service_completed_successfully}}
   backend:
-    build: {context: ., dockerfile: backend/Dockerfile}
-    environment: *backend_env
+    <<: *backend
     ports: ["127.0.0.1:8000:8000"]
     depends_on: {seed: {condition: service_completed_successfully}}
     healthcheck:
@@ -45,7 +39,11 @@ services:
       timeout: 5s
       retries: 10
   frontend:
-    build: {context: ., dockerfile: frontend/Dockerfile}
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        BACKEND_URL: ${BACKEND_URL:-http://backend:8000}
     ports: ["127.0.0.1:3000:3000"]
     depends_on: {backend: {condition: service_healthy}}
     healthcheck:

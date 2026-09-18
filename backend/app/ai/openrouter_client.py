@@ -169,44 +169,41 @@ class RealOpenRouterClient:
         except (KeyError, IndexError, TypeError) as exc:
             raise AIResponseError(retryable=False) from exc
 
-    async def chat(self, messages: list[dict[str, Any]], *, reasoning: bool = False) -> ChatResult:
-        model = (
-            self.settings.openrouter_reasoning_model
-            if reasoning
-            else self.settings.openrouter_chat_model
-        )
-        data, usage = await self.request(
-            "chat/completions", {"model": model, "messages": messages, "max_tokens": 800}
-        )
-        return self.result(data, usage)
-
-    async def chat_with_tools(
-        self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]
+    async def _chat_completion(
+        self,
+        messages: list[dict[str, Any]],
+        *,
+        model: str | None = None,
+        max_tokens: int = 800,
+        **options: Any,
     ) -> ChatResult:
         data, usage = await self.request(
             "chat/completions",
             {
-                "model": self.settings.openrouter_chat_model,
+                "model": model or self.settings.openrouter_chat_model,
                 "messages": messages,
-                "tools": tools,
-                "tool_choice": "auto",
-                "max_tokens": 800,
+                "max_tokens": max_tokens,
+                **options,
             },
         )
         return self.result(data, usage)
 
+    async def chat(self, messages: list[dict[str, Any]], *, reasoning: bool = False) -> ChatResult:
+        return await self._chat_completion(
+            messages, model=self.settings.openrouter_reasoning_model if reasoning else None
+        )
+
+    async def chat_with_tools(
+        self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]
+    ) -> ChatResult:
+        return await self._chat_completion(messages, tools=tools, tool_choice="auto")
+
     async def structured_completion(self, messages: list[dict[str, Any]], schema: type[T]) -> T:
-        data, usage = await self.request(
-            "chat/completions",
-            {
-                "model": self.settings.openrouter_chat_model,
-                "messages": messages,
-                "response_format": {"type": "json_object"},
-                "max_tokens": 1200,
-            },
+        result = await self._chat_completion(
+            messages, response_format={"type": "json_object"}, max_tokens=1200
         )
         try:
-            return schema.model_validate_json(self.result(data, usage).content)
+            return schema.model_validate_json(result.content)
         except ValidationError as exc:
             raise AIResponseError(
                 "I couldn't reliably understand that request. Please rephrase it.", retryable=False

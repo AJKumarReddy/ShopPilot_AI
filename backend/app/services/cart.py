@@ -98,22 +98,14 @@ class CartService:
                     raise CommerceError(f"That {key} is not listed for this product.")
                 variants.append(f"{key}: {value}")
         variant = ", ".join(variants)
-        item = await self.db.scalar(
-            select(CartItem).where(
-                CartItem.cart_id == cart.id,
-                CartItem.product_id == product.id,
-                CartItem.variant == variant,
-            )
-        )
-        existing = list(
-            (
-                await self.db.scalars(
-                    select(CartItem).where(
-                        CartItem.cart_id == cart.id, CartItem.product_id == product.id
-                    )
+        existing = (
+            await self.db.scalars(
+                select(CartItem).where(
+                    CartItem.cart_id == cart.id, CartItem.product_id == product.id
                 )
-            ).all()
-        )
+            )
+        ).all()
+        item = next((item for item in existing if item.variant == variant), None)
         self.validate_stock(inventory, sum(i.quantity for i in existing) + args.quantity)
         if item:
             if item.quantity + args.quantity > 99:

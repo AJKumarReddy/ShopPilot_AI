@@ -27,6 +27,51 @@ async def no_sleep(_: float) -> None:
     pass
 
 
+@pytest.mark.parametrize("operation", ["chat", "reasoning", "tools", "structured"])
+async def test_completion_modes_preserve_model_and_parameters(operation: str) -> None:
+    messages = [{"role": "user", "content": "Headphones under $150"}]
+    tools = [{"type": "function", "function": {"name": "search_products"}}]
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content)
+        assert request.url.path == "/api/v1/chat/completions"
+        assert payload["messages"] == messages
+        assert payload["model"] == ("reasoning-model" if operation == "reasoning" else "chat-model")
+        assert payload["max_tokens"] == (1200 if operation == "structured" else 800)
+        if operation == "tools":
+            assert payload["tools"] == tools
+            assert payload["tool_choice"] == "auto"
+        else:
+            assert "tools" not in payload
+        if operation == "structured":
+            assert payload["response_format"] == {"type": "json_object"}
+        else:
+            assert "response_format" not in payload
+        return httpx.Response(
+            200, json={"choices": [{"message": {"content": '{"max_price": 150}'}}]}
+        )
+
+    ai = RealOpenRouterClient(
+        Settings(
+            openrouter_api_key="test-only",
+            openrouter_chat_model="chat-model",
+            openrouter_reasoning_model="reasoning-model",
+        ),
+        transport=httpx.MockTransport(handler),
+    )
+    try:
+        if operation == "structured":
+            assert (await ai.structured_completion(messages, Constraints)).max_price == 150
+        elif operation == "tools":
+            assert (await ai.chat_with_tools(messages, tools)).content == '{"max_price": 150}'
+        else:
+            assert (
+                await ai.chat(messages, reasoning=operation == "reasoning")
+            ).content == '{"max_price": 150}'
+    finally:
+        await ai.aclose()
+
+
 @pytest.mark.parametrize("status", [429, 500, 502])
 async def test_openrouter_retry_fallback_and_routing(status: int) -> None:
     seen = []

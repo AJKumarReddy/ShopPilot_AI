@@ -9,6 +9,8 @@ export function ProductCard({
   disabled,
   onCompare,
   onAdd,
+  onSave,
+  saved = false,
 }: {
   product: Product;
   rank: number;
@@ -16,11 +18,14 @@ export function ProductCard({
   disabled: boolean;
   onCompare: () => void;
   onAdd: () => void;
+  onSave?: () => void;
+  saved?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
   return (
     <article className="product-card" data-testid="product-card">
       <div className="product-image">
+        {onSave && <button className={`save-button ${saved ? "is-saved" : ""}`} onClick={onSave} aria-label={`${saved ? "Unsave" : "Save"} ${product.title}`} aria-pressed={saved}>♡</button>}
         <span className={`rank ${rank === 1 ? "top" : ""}`}>
           {rank === 1 ? (
             <>

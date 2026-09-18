@@ -24,7 +24,7 @@ export function CheckoutModal({
         {checkout.snapshot.items.map((item) => (
           <div key={item.id}>
             <span>
-              {item.quantity} × {item.product.title}
+              {item.quantity} Ã— {item.product.title}
             </span>
             <strong>${item.line_total}</strong>
           </div>
@@ -33,13 +33,13 @@ export function CheckoutModal({
       <Totals cart={checkout.snapshot} />
       <p className="confirm-question">Would you like me to place this order?</p>
       <button className="primary full" disabled={busy} onClick={onConfirm}>
-        {busy ? "Placing order…" : "Yes, place the order"}
+        {busy ? "Placing orderâ€¦" : "Yes, place the order"}
       </button>
       <button className="text-button full" disabled={busy} onClick={onClose}>
         Keep shopping
       </button>
       <p className="fine-print">
-        Demo checkout · Mock payment only · No card required
+        Secure checkout Â· Review your order before placing it
         <br />
         Quote expires at{" "}
         {new Date(checkout.expires_at).toLocaleTimeString([], {

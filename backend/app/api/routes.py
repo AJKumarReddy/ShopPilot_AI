@@ -4,10 +4,9 @@ import logging
 from collections.abc import AsyncIterator
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select, text
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.orchestrator import CommerceOrchestrator
@@ -73,6 +72,13 @@ async def compare_products(args: CompareInput, db: Db) -> dict[str, Any]:
             product_view(*(await repo.get(pid))) for pid in dict.fromkeys(args.product_ids)
         ]
     }
+
+
+@router.get("/products/metadata")
+async def product_metadata(
+    db: Db, major_category: str | None = Query(default=None, max_length=120)
+) -> dict[str, list[str]]:
+    return await CatalogRepository(db).metadata(major_category)
 
 
 @router.get("/products/{product_id}")
@@ -234,7 +240,7 @@ async def stream_chat(
             except (CommerceError, AIError) as exc:
                 await db.rollback()
                 await queue.put(("error", {"message": str(exc)}))
-            except (SQLAlchemyError, Exception):
+            except Exception:
                 await db.rollback()
                 LOG.error("chat_stream_failed")
                 await queue.put(
